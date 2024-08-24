@@ -3,7 +3,7 @@ import {Schema, model, Document, Types } from 'mongoose';
 interface IBank extends Document {
   _id: Types.ObjectId;
   balance: number;
-  user: Schema.Types.ObjectId;
+  userId: Schema.Types.ObjectId;
 };
 
 const bankSchema = new Schema<IBank>({
@@ -11,7 +11,7 @@ const bankSchema = new Schema<IBank>({
         required: true,
         type: Number
     },
-    user: {
+    userId: {
         type: Schema.Types.ObjectId,
         ref: 'User',
         required: true

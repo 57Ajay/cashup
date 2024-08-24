@@ -18,6 +18,13 @@ const loginUserSchema = z.object({
   email: z.string().email().optional(),
 });
 
+const updateUserSchema = z.object({
+  username: z.string().min(3).optional(),
+  currentPassword: z.string().min(5).optional(),
+  newPassword: z.string().min(5).optional(),
+  email: z.string().email().optional(),
+});
+
 export const registerUser = asyncHandler(async (req, res) => {
   const parsedBody = registerUserSchema.safeParse(req.body);
   if (!parsedBody.success) {
@@ -128,6 +135,12 @@ export const searchUserViaFilter = asyncHandler(async (req, res) => {
   }
 
   const { filter } = req.query;
+  if (!filter){
+    return res.status(400).json(
+      ApiResponse.error("Please provide filter query parameter", "missing query parameter")
+    )
+  };
+
   const users = await User.find({
     $or: [
       { username: { "$regex": filter, "$options": "i" } },
@@ -140,4 +153,75 @@ export const searchUserViaFilter = asyncHandler(async (req, res) => {
   }
 
   return res.status(200).json(ApiResponse.success("Users found", users));
+});
+
+
+export const updateUser = asyncHandler(async(req, res) => {
+  const parsedBody = updateUserSchema.safeParse(req.body);
+  if (!parsedBody.success) {
+    return res.status(400).json(ApiResponse.error("Please provide correct schema", parsedBody.error));
+  };
+
+  const { username, currentPassword, newPassword, email } = parsedBody.data;
+  const dupleValue = await User.findOne({
+    $or: [
+      { username },
+      { email }
+    ]
+  });
+
+  if (dupleValue && dupleValue._id.toString() !== req.user._id.toString()) {
+    return res.status(400).json(ApiResponse.error("User already exists"));
+  };
+
+  const userId = req.user._id;
+  if (!userId) return res.status(401).json(ApiResponse.error("Unauthorized"));
+
+  if (!username && !currentPassword && !newPassword && !email) {
+    return res.status(400).json(ApiResponse.error("Please provide at least one field to update"));
+  };
+
+  if (currentPassword && !newPassword) {
+    return res.status(400).json(ApiResponse.error("Please provide new password"));
+  };
+
+  if (newPassword && !currentPassword) {
+    return res.status(400).json(ApiResponse.error("Please provide current password"));
+  };
+
+  const user = await User.findById(userId);
+  if (!user) {
+    return res.status(404).json(ApiResponse.error("User not found"));
+  };
+
+  let updates: Partial<{ username: string; password: string; email: string }> = {};
+  let hashedPassword: string | undefined;
+
+  if (newPassword && currentPassword) {
+    const comparePassword = await bcrypt.compare(currentPassword, user.password); // Corrected to await
+    if (!comparePassword) {
+      return res.status(400).json(ApiResponse.error("Invalid credentials"));
+    };
+
+    hashedPassword = await bcrypt.hash(newPassword, 10);
+    updates.password = hashedPassword;
+  };
+
+  if (username) {
+    updates.username = username;
+  };
+
+  if (email) {
+    updates.email = email;
+  };
+
+  await User.findByIdAndUpdate(userId, updates, { new: true });
+
+  return res.status(200).json(
+    ApiResponse.success("User updated successfully", {
+      _id: user._id,
+      username: updates.username || user.username,
+      email: updates.email || user.email,
+    })
+  );
 });
