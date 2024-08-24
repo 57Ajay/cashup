@@ -1,6 +1,7 @@
 import { asyncHandler } from '../utils/asyncHandler';
 import bcrypt from 'bcrypt';
 import User from '../models/user.model';
+import Bank from "../models/bank.model"
 import generateToken from '../utils/generateToken';
 import Token from '../models/token.model';
 import { z } from 'zod';
@@ -45,12 +46,19 @@ export const registerUser = asyncHandler(async (req, res) => {
     password: hashedPassword,
     email,
   });
+  const bank = await Bank.create({
+    userId: user._id,
+    balance: (1 + (Math.random()*1000)).toFixed(2)
+  });
+  await User.findByIdAndUpdate(user._id, { $push: { bankId: bank._id } });
 
   res.status(201).json(
     ApiResponse.success("User registered Successfully", {
       _id: user._id,
       username: user.username,
       email: user.email,
+      bankId: bank._id,
+      balance: bank.balance
     })
   );
 });
@@ -72,9 +80,14 @@ export const loginUser = asyncHandler(async (req, res) => {
     return res.status(400).json(ApiResponse.error("User does not exist"));
   }
 
+  
   const isMatch = await bcrypt.compare(password, user.password);
   if (!isMatch) {
     return res.status(400).json(ApiResponse.error("Invalid credentials"));
+  }
+  const bank = await Bank.findById(user.bankId);
+  if (!bank) {
+    return res.status(400).json(ApiResponse.error("Bank not found"));
   }
 
   const newToken = await generateToken(user._id);
@@ -84,6 +97,8 @@ export const loginUser = asyncHandler(async (req, res) => {
       username: user.username,
       email: user.email,
       token: newToken.token,
+      bankId: user.bankId,
+      balance: bank.balance
     })
   );
 });
@@ -120,9 +135,10 @@ export const deleteUser = asyncHandler(async (req, res) => {
   const userId = req.user._id;
   if (!userId) return res.status(401).json(ApiResponse.error("Unauthorized"));
 
-  const userToDelete = await User.findById(userId).select("-password"); // Check existence first
+  const userToDelete = await User.findById(userId).select("-password");
+  
   if (!userToDelete) return res.status(404).json(ApiResponse.error("User not found"));
-
+  await Bank.findByIdAndDelete(userToDelete.bankId[0]);
   await User.findByIdAndDelete(userId);
   const deletedTokens = await Token.deleteMany({ user: userId });
 
@@ -137,16 +153,25 @@ export const searchUserViaFilter = asyncHandler(async (req, res) => {
   const { filter } = req.query;
   if (!filter){
     return res.status(400).json(
-      ApiResponse.error("Please provide filter query parameter", "missing query parameter")
+      ApiResponse.error("use 'filter=all' to get all the users", "Please provide filter query parameter")
     )
   };
 
-  const users = await User.find({
-    $or: [
-      { username: { "$regex": filter, "$options": "i" } },
-      { email: { "$regex": filter, "$options": "i" } },
-    ],
-  }).select("-password");
+  let users: object[];
+
+  if (filter === "all"){
+    users = await User.find({}).select("-password").populate('bankId');
+    return res.status(200).json(
+      ApiResponse.success("ALl Users fetched successfully", users)
+    )
+  }else{
+    users = await User.find({
+      $or: [
+        { username: { "$regex": filter, "$options": "i" } },
+        { email: { "$regex": filter, "$options": "i" } },
+      ],
+    }).select("-password").populate('bankId');
+  };
 
   if (!users.length) {
     return res.status(404).json(ApiResponse.error("No user found", "No matching users with given query"));
@@ -157,30 +182,37 @@ export const searchUserViaFilter = asyncHandler(async (req, res) => {
 
 
 export const updateUser = asyncHandler(async(req, res) => {
+  if (!req.user){
+    return res.status(403).json(
+      ApiResponse.error("Please login to update")
+    )
+  };
+
   const parsedBody = updateUserSchema.safeParse(req.body);
   if (!parsedBody.success) {
     return res.status(400).json(ApiResponse.error("Please provide correct schema", parsedBody.error));
   };
 
   const { username, currentPassword, newPassword, email } = parsedBody.data;
-  const dupleValue = await User.findOne({
+  if (!username && !currentPassword && !newPassword && !email) {
+    return res.status(400).json(ApiResponse.error("Please provide at least one field to update"));
+  };
+
+  const existingUser = await User.findOne({
     $or: [
       { username },
       { email }
     ]
   });
 
-  if (dupleValue && dupleValue._id.toString() !== req.user._id.toString()) {
+  if (existingUser && existingUser._id.toString() !== req.user._id.toString()) {
     return res.status(400).json(ApiResponse.error("User already exists"));
   };
 
   const userId = req.user._id;
   if (!userId) return res.status(401).json(ApiResponse.error("Unauthorized"));
 
-  if (!username && !currentPassword && !newPassword && !email) {
-    return res.status(400).json(ApiResponse.error("Please provide at least one field to update"));
-  };
-
+  
   if (currentPassword && !newPassword) {
     return res.status(400).json(ApiResponse.error("Please provide new password"));
   };
