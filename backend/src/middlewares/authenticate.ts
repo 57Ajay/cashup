@@ -23,7 +23,7 @@ const authenticate = async (req: RequestWithUser, res: Response, next: NextFunct
                 resason: 'either token is expired or does not exist, consider logging in again',
             });
         }
-        console.log("tokenDoc\n", tokenDoc)
+        // console.log("tokenDoc\n", tokenDoc)
         req.user = tokenDoc.user;
         next();
     } catch (error) {

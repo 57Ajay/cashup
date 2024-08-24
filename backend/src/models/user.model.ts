@@ -6,6 +6,7 @@ interface IUser extends Document {
     email: string;
     password: string;
     tokens: Schema.Types.ObjectId[];
+    bankId: Schema.Types.ObjectId;
 }
 const userSchema = new mongoose.Schema<IUser>({
     username: {
@@ -25,6 +26,10 @@ const userSchema = new mongoose.Schema<IUser>({
     tokens: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Token'
+    }],
+    bankId: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Bank'
     }]
 
 }, { timestamps: true });
