@@ -3,8 +3,30 @@ import bcrypt from 'bcrypt';
 import User from '../models/user.model';
 import generateToken from '../utils/generateToken';
 import Token from '../models/token.model';
+import { z } from 'zod';
+
+const registerUserSchema = z.object({
+    username: z.string().min(3),
+    password: z.string().min(5),
+    email: z.string().email(),
+});
+
+const loginUserSchema = z.object({
+    username: z.string().min(3).optional(),
+    password: z.string().min(5),
+    email: z.string().email().optional(),
+});
+
 
 export const registerUser = asyncHandler(async(req, res)=>{
+    const parsedBody = registerUserSchema.safeParse(req.body);
+    if (!parsedBody.success){
+        return res.status(404).json({
+            msg: parsedBody.error,
+            altermsg: "please provide proper schema for the body",
+        })
+    };
+    
     const { username, password, email } = req.body;
     if (!username || !password || !email) return res.status(400).json({
         message: 'All fields are required'
@@ -31,6 +53,13 @@ export const registerUser = asyncHandler(async(req, res)=>{
 
 
 export const loginUser = asyncHandler(async (req, res) => {
+    const parsedBody = loginUserSchema.safeParse(req.body);
+    if (!parsedBody.success){
+        return res.status(404).json({
+            msg: parsedBody.error,
+            altermsg: "please provide proper schema for the body",
+        })
+    };
     const { username, password, email } = req.body;
 
     if (!username && !email) {
@@ -93,3 +122,4 @@ export const logoutUser = asyncHandler(async (req, res) => {
         res.status(500).json({ message: 'Error logging out' });
     }
 });
+
