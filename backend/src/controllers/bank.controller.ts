@@ -49,3 +49,31 @@ export const transferBalance = asyncHandler(async(req, res)=>{
         })
     );
 });
+
+
+export const getBalance = asyncHandler(async(req, res)=>{
+    if (!req.user){
+        return res.status(404).json(
+            ApiResponse.error("Login to check balance")
+        )
+    };
+
+    const bank = await Bank.findOne({ userId: req.user._id});
+    if (!bank){
+        return res.status(404).json(
+            ApiResponse.error("Bank account not found")
+        )
+    };
+
+    if (bank._id.toString() != req.user.bankId[0].toString()){
+        return res.status(404).json(
+            ApiResponse.error("You can only check your account balance")
+        )
+    };
+
+    return res.status(200).json(
+        ApiResponse.success("Balance fetched successfully", {
+            balance: bank.balance
+        })
+    );
+});

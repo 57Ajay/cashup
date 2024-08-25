@@ -160,7 +160,7 @@ export const searchUserViaFilter = asyncHandler(async (req, res) => {
   let users: object[];
 
   if (filter === "all"){
-    users = await User.find({}).select("-password").populate('bankId');
+    users = await User.find({}).populate('bankId').select("-password -balance");
     return res.status(200).json(
       ApiResponse.success("ALl Users fetched successfully", users)
     )
@@ -170,7 +170,7 @@ export const searchUserViaFilter = asyncHandler(async (req, res) => {
         { username: { "$regex": filter, "$options": "i" } },
         { email: { "$regex": filter, "$options": "i" } },
       ],
-    }).select("-password").populate('bankId');
+    }).populate('bankId').select("-password -balance");
   };
 
   if (!users.length) {
