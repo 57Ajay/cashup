@@ -3,14 +3,16 @@ import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../store/store';
 import { logout } from '../store/store';
 import { DollarSign } from 'lucide-react';
-
+import { useNavigate } from "react-router-dom";
 const Header = () => {
   const isAuthenticated = useSelector((state: RootState) => state.auth.isAuthenticated);
   const dispatch = useDispatch();
+  const navigate = useNavigate();
 
 
   const handleLogout = () => {
     dispatch(logout());
+    navigate("/")
   };
 
   return (

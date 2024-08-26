@@ -4,8 +4,10 @@ import axios from 'axios'
 import { RootState } from '../store/store'
 import { logout } from '../store/store'
 import { UserIcon, DollarSign, SearchIcon, ArrowRightIcon, CheckCircle } from 'lucide-react'
+import { useNavigate } from "react-router-dom";
 
 export default function Component() {
+    const navigate = useNavigate()
   const [_, setTo] = useState('')
   const [amount, setAmount] = useState('')
   const [balance, setBalance] = useState<number | null>(null)
@@ -15,6 +17,13 @@ export default function Component() {
   const [successMessage, setSuccessMessage] = useState('')
   const dispatch = useDispatch()
   const user = useSelector((state: RootState) => state.auth.user)
+  const isAuthenticated = useSelector((state: RootState) => state.auth.isAuthenticated)
+
+  useEffect(()=>{
+    if (!isAuthenticated){
+        navigate("/")
+    }
+  }, [isAuthenticated])
 
   useEffect(() => {
     if (user) {
