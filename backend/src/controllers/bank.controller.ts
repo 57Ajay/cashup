@@ -45,7 +45,8 @@ export const transferBalance = asyncHandler(async(req, res)=>{
         ApiResponse.success("Transaction successfull", {
             fromUser: req.user.id,
             toUser: to,
-            amount: amount 
+            amount: amount ,
+            remainingBalance: bankAccount.balance - amount
         })
     );
 });

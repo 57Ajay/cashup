@@ -48,7 +48,7 @@ export const registerUser = asyncHandler(async (req, res) => {
   });
   const bank = await Bank.create({
     userId: user._id,
-    balance: (1 + (Math.random()*1000)).toFixed(2)
+    balance: (1 + (Math.random()*10000)).toFixed(2)
   });
   await User.findByIdAndUpdate(user._id, { $push: { bankId: bank._id } });
 
@@ -86,9 +86,15 @@ export const loginUser = asyncHandler(async (req, res) => {
     return res.status(400).json(ApiResponse.error("Invalid credentials"));
   }
   const bank = await Bank.findById(user.bankId);
+  const bankDetails = {
+    balance: null
+  };
+  
   if (!bank) {
-    return res.status(400).json(ApiResponse.error("Bank not found"));
-  }
+    bankDetails.balance = 0;
+  } else {
+    bankDetails.balance = bank.balance;
+  };
 
   const newToken = await generateToken(user._id);
   res.status(200).json(
@@ -98,7 +104,7 @@ export const loginUser = asyncHandler(async (req, res) => {
       email: user.email,
       token: newToken.token,
       bankId: user.bankId,
-      balance: bank.balance
+      balance: bankDetails.balance
     })
   );
 });
@@ -160,7 +166,10 @@ export const searchUserViaFilter = asyncHandler(async (req, res) => {
   let users: object[];
 
   if (filter === "all"){
-    users = await User.find({}).populate('bankId').select("-password -balance");
+    users = await User.find({}).populate({
+      path: "bankId",
+      select: "-balance"
+    }).select("-password");
     return res.status(200).json(
       ApiResponse.success("ALl Users fetched successfully", users)
     )
@@ -170,7 +179,10 @@ export const searchUserViaFilter = asyncHandler(async (req, res) => {
         { username: { "$regex": filter, "$options": "i" } },
         { email: { "$regex": filter, "$options": "i" } },
       ],
-    }).populate('bankId').select("-password -balance");
+    }).populate({
+      path: "bankId",
+      select: "-balance"
+    }).select("-password");
   };
 
   if (!users.length) {
