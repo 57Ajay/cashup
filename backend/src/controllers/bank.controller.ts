@@ -23,6 +23,7 @@ export const transferBalance = asyncHandler(async(req, res)=>{
     };
 
     if (bankAccount.balance < amount){
+        await session.abortTransaction();
         return res.status(404).json(
             ApiResponse.error("Insufficient Balence")
         )
@@ -41,6 +42,7 @@ export const transferBalance = asyncHandler(async(req, res)=>{
     await Bank.updateOne({userId: to}, { $inc: { balance: +amount } }).session(session);
 
     await session.commitTransaction();
+    session.endSession(); 
     return res.status(200).json(
         ApiResponse.success("Transaction successfull", {
             fromUser: req.user.id,
